@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-from sys import argv, modules
-if 'idlelib.run' in modules: #if the file is runs from idle it runs as a pyw
-    from subprocess import call
-    print ("by defult .pyws are blocked by the firewall, opening as a .py")
-    call(f"python {argv[0]}")
-
 import socket
 import threading
 import tkinter as tk

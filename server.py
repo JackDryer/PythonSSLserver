@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-from sys import argv, modules
-if 'idlelib.run' in modules: #if the file is runs from idle it runs as a pyw
-    from subprocess import call
-    print ("by defult .pyws are blocked by the firewall, opening as a .py")
-    call(f"python {argv[0]}")
 
 import socket
 import threading
@@ -14,9 +9,9 @@ import functools
 HEADERSIZE = 16
 BUFFERSIZE = 64
 ENCODING = "utf-8"
-SERVERIP = "0.0.0.0"
+SERVERIP = "::"
 PORT = 5050
-ADRS = (SERVERIP,PORT)
+ADRS = (SERVERIP,PORT,0,0)
 
 SERVERPREF = "/"
 CLIENTPREF = "!"
@@ -24,11 +19,15 @@ FILEPREF = "%"
 
 ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 ctx.load_cert_chain("servercert.pem")
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+#server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server= ctx.wrap_socket(server,server_side = True)
+print(server.family,server.type)
 server.bind(ADRS)
 server.listen(3)
-print(f"server live on {socket.gethostname()}")
+print(f"server live on {server.getsockname()}")
+print(socket.getfqdn(server.getsockname()[0]))
 
 
 class aliasdict(dict): #will only work with strings as keys and is case insensetive
