@@ -15,7 +15,6 @@ if not SERVERIP:
     SERVERIP= socket.gethostname()
 PORT = 5050
 ADRS = (SERVERIP,PORT)
-
 SERVERPREF = "/"
 CLIENTPREF = "!"
 FILEPREF = "%"
@@ -27,7 +26,7 @@ class client(object):
         ctx.load_verify_locations("servercert.pem")
         ctx.check_hostname  = False
         self.ADRS = ADRS
-        self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock = ctx.wrap_socket(self.sock,server_hostname=SERVERIP)
         self.sock.connect((ADRS))
         self.times = []
