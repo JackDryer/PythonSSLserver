@@ -6,7 +6,7 @@ from tkinter import scrolledtext, filedialog
 import json
 import ssl
 import time
-
+from flashwindow import flash
 HEADERSIZE = 16
 BUFFERSIZE = 64
 ENCODING = "utf-8"
@@ -27,9 +27,10 @@ class client(object):
         ctx.load_verify_locations("servercert.pem")
         ctx.check_hostname  = False
         self.ADRS = ADRS
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.sock = ctx.wrap_socket(self.sock,server_hostname=SERVERIP)
         self.sock.connect((ADRS))
+        self.times = []
 
     
     def send(self,msg):
@@ -40,12 +41,17 @@ class client(object):
                 msg["cargs"]= []
             if not "ckwargs" in msg:
                 msg["ckwargs"]= {}
+            if msg["clientcommand"] == "edit":
+                if int(msg["cargs"][0]) <0:
+                    msg["cargs"][0] = str(self.times[int(msg["cargs"][0])])
         if "servercommand" in msg:
             if not "sargs" in msg:
                 msg["sargs"]= []
             if not "skwargs" in msg:
                 msg["skwargs"]= {}
-        msg["time"] = time.time()# used to generate ids
+        if not("clientcommand" in msg and msg["clientcommand"] == "edit"):
+            msg["time"] = time.time()# used to generate ids
+            self.times.append(msg["time"])
         msg = json.dumps(msg)
         msg = self.encode(msg)
         if FULLLOGGGING: print(msg)
@@ -70,7 +76,7 @@ class client(object):
             else:
                 out["sargs"] = None
         elif string[0] == "!":
-            command = string.split(">")
+            command = string.split(" ")
             out["clientcommand"] =command[0][1:]
             if len (command)>1:
                 out["cargs"] = command[1:]
@@ -99,6 +105,8 @@ class client(object):
         if FULLLOGGGING: print(msg)
         msg = msg.decode(ENCODING)
         msg = json.loads(msg)
+        if not "time" in msg:
+            msg["time"] = time.time()# wont be usefull but enables bakwards compaltiblity
         if "largefile" in msg:
             msg = decode(recivebytes(int(msg["largefile"])))
         if "clientcommand" in msg:
@@ -266,30 +274,33 @@ class ui(client):
             while True:
                 msg = self.recive()
                 msg = self.decode(msg)
-                if "message" in msg and len(msg["message"])>0:
+                if "clientcommand" in msg and msg["clientcommand"] =="edit":
+                        indexs = self.messagedict[msg["sender"]+msg["cargs"][0]]
+                        self.messages.config(state= tk.NORMAL)
+                        self.messages.delete(*indexs)
+                        if len(msg["cargs"])>1:
+                            self.insertmessage(indexs[0], f'{msg["sender"]}> {" ".join(msg["cargs"][1:])}\n')
+                            self.messagedict[msg["sender"]+msg["cargs"][0]] =indexs[0],self.messages.index(tk.INSERT)
+                        self.messages.config(state= tk.DISABLED)
+                elif "message" in msg and len(msg["message"])>0:
                     if msg["message"][0] == CLIENTPREF :
                         if msg["message"][1:]== "Disconnect":
                             break
                     line = f'{msg["sender"]}> {msg["message"]}'
-                    if "clientcommand" in msg and msg["clientcommand"] =="edit":
-                        indexs = messagedict[msg["sender"]+msg["cargs"]]
-                        self.messages.config(state= tk.NORMAL)
-                        self.messages.delete(*indexs)
-                        self.messages.config(state= tk.DISABLED)
-                    else:
-                        if "time" in msg:
-                            first = self.messages.index(tk.END)
-                            last = ".".join((first.split(".")[0],str(int(first.split(".")[1])+len(line))))
-                            self.messagedict[msg["sender"]+str(msg["time"])]= (first,last)
-                        self.messages.config(state= tk.NORMAL)
-                        self.messages.insert(tk.END,line+'\n')
-                        self.messages.see(tk.END)
-                        self.messages.config(state= tk.DISABLED)
+                    first = self.messages.index(tk.INSERT)
+                    self.insertmessage(tk.END,line+'\n')
+                    last = self.messages.index(tk.INSERT)
+                    self.messagedict[msg["sender"]+str(msg["time"])]= (first,last)
+                flash()
         except Exception as e:
             raise e
             self.close()
             
-    
+    def insertmessage (self,index,line):
+        self.messages.config(state= tk.NORMAL)
+        self.messages.insert(index,line)
+        self.messages.see(tk.END)
+        self.messages.config(state= tk.DISABLED)
     def createfillertext(self,event):
         if not self.inputfield.get():
             self.inputfield.config(fg = "grey60")
